@@ -60,18 +60,33 @@ export function unblockReadyTasks(db: Database, boardId: string, getBoardTasks: 
   })()
 }
 
+const _regexpCache = new Map<string, RegExp>()
+const CACHE_MAX = 512
+
+function getCachedRegExp(glob: string): RegExp {
+  let re = _regexpCache.get(glob)
+  if (re) return re
+  re = new RegExp("^" + glob.replace(/\./g, "\\.").replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*") + "$")
+  if (_regexpCache.size >= CACHE_MAX) {
+    _regexpCache.delete(_regexpCache.keys().next().value!)
+  }
+  _regexpCache.set(glob, re)
+  return re
+}
+
+export function _clearRegexpCache(): void { _regexpCache.clear() }
+export function _regexpCacheSize(): number { return _regexpCache.size }
+
 export function globOverlaps(a: string, b: string): boolean {
   if (a === b) return true
   const na = a.replace(/\\/g, "/"), nb = b.replace(/\\/g, "/")
   if (na.endsWith("/**") && nb.startsWith(na.slice(0, -2))) return true
   if (nb.endsWith("/**") && na.startsWith(nb.slice(0, -2))) return true
   if (na.includes("*")) {
-    const re = new RegExp("^" + na.replace(/\./g, "\\.").replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*") + "$")
-    if (re.test(nb)) return true
+    if (getCachedRegExp(na).test(nb)) return true
   }
   if (nb.includes("*")) {
-    const re = new RegExp("^" + nb.replace(/\./g, "\\.").replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*") + "$")
-    if (re.test(na)) return true
+    if (getCachedRegExp(nb).test(na)) return true
   }
   return false
 }
