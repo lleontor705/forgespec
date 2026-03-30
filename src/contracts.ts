@@ -29,120 +29,120 @@ export function migrateContract(parsed: any): any {
 export const BaseEnvelope = z.object({
   schema_version: SchemaVersion,
   phase: SddPhaseEnum,
-  timestamp: z.string().optional(),
-  change_name: z.string().min(1),
-  project: z.string().min(1),
+  timestamp: z.string().max(64).optional(),
+  change_name: z.string().min(1).max(100),
+  project: z.string().min(1).max(200),
   status: z.enum(["success", "partial", "failed", "blocked"]),
   confidence: z.number().min(0).max(1),
   executive_summary: z.string().min(10).max(500),
-  artifacts_saved: z.array(z.object({ topic_key: z.string(), type: z.enum(["engram", "openspec", "inline"]) })),
-  next_recommended: z.array(z.string()),
-  risks: z.array(z.object({ description: z.string(), level: RiskLevel })),
-})
+  artifacts_saved: z.array(z.object({ topic_key: z.string().max(300), type: z.enum(["engram", "openspec", "inline"]) }).strict()),
+  next_recommended: z.array(z.string().max(50)),
+  risks: z.array(z.object({ description: z.string().max(500), level: RiskLevel }).strict()),
+}).strict()
 
 const InitContract = BaseEnvelope.extend({
   phase: z.literal("init"),
   data: z.object({
-    project_name: z.string(), tech_stack: z.array(z.string()).min(1),
+    project_name: z.string().max(200), tech_stack: z.array(z.string().max(100)).min(1),
     persistence_mode: z.enum(["engram", "openspec", "hybrid", "none"]),
-    conventions_detected: z.array(z.string()),
-    architecture_pattern: z.string().optional(), skill_registry_saved: z.boolean(),
-  }),
+    conventions_detected: z.array(z.string().max(200)),
+    architecture_pattern: z.string().max(200).optional(), skill_registry_saved: z.boolean(),
+  }).strict(),
 })
 
 const ExploreContract = BaseEnvelope.extend({
   phase: z.literal("explore"),
   data: z.object({
-    topic: z.string(), focus: z.enum(["architecture", "investigation", "migration", "general"]),
-    affected_files: z.array(z.string()),
-    approaches: z.array(z.object({ name: z.string(), effort: z.enum(["low", "medium", "high"]), recommended: z.boolean() })).min(1),
-    recommendation: z.string(), ready_for_proposal: z.boolean(),
-    root_cause: z.object({ location: z.string(), description: z.string() }).optional(),
-  }),
+    topic: z.string().max(300), focus: z.enum(["architecture", "investigation", "migration", "general"]),
+    affected_files: z.array(z.string().max(500)),
+    approaches: z.array(z.object({ name: z.string().max(200), effort: z.enum(["low", "medium", "high"]), recommended: z.boolean() }).strict()).min(1),
+    recommendation: z.string().max(2000), ready_for_proposal: z.boolean(),
+    root_cause: z.object({ location: z.string().max(500), description: z.string().max(1000) }).strict().optional(),
+  }).strict(),
 })
 
 const ProposeContract = BaseEnvelope.extend({
   phase: z.literal("propose"),
   data: z.object({
-    change_title: z.string(), intent: z.string().min(10),
-    scope_in: z.array(z.string()).min(1), scope_out: z.array(z.string()),
-    approach: z.string().min(10),
-    affected_areas: z.array(z.object({ path: z.string(), impact: z.enum(["new", "modified", "removed"]) })),
+    change_title: z.string().max(300), intent: z.string().min(10).max(2000),
+    scope_in: z.array(z.string().max(500)).min(1), scope_out: z.array(z.string().max(500)),
+    approach: z.string().min(10).max(5000),
+    affected_areas: z.array(z.object({ path: z.string().max(500), impact: z.enum(["new", "modified", "removed"]) }).strict()),
     risk_level: RiskLevel, has_rollback_plan: z.boolean(),
-    success_criteria: z.array(z.string()).min(1), dependencies: z.array(z.string()),
-  }),
+    success_criteria: z.array(z.string().max(500)).min(1), dependencies: z.array(z.string().max(200)),
+  }).strict(),
 })
 
 const SpecContract = BaseEnvelope.extend({
   phase: z.literal("spec"),
   data: z.object({
     domains: z.array(z.object({
-      name: z.string(), type: z.enum(["delta", "new"]),
+      name: z.string().max(200), type: z.enum(["delta", "new"]),
       requirements_added: z.number().int().min(0), requirements_modified: z.number().int().min(0),
       requirements_removed: z.number().int().min(0), total_scenarios: z.number().int().min(1),
-    })).min(1),
+    }).strict()).min(1),
     coverage: z.object({
       happy_paths: z.enum(["covered", "partial", "missing"]),
       edge_cases: z.enum(["covered", "partial", "missing"]),
       error_states: z.enum(["covered", "partial", "missing"]),
-    }),
+    }).strict(),
     total_requirements: z.number().int().min(1), total_scenarios: z.number().int().min(1),
-  }),
+  }).strict(),
 })
 
 const DesignContract = BaseEnvelope.extend({
   phase: z.literal("design"),
   data: z.object({
-    approach_summary: z.string(),
-    decisions: z.array(z.object({ title: z.string(), choice: z.string(), rationale: z.string() })).min(1),
-    file_changes: z.array(z.object({ path: z.string(), action: z.enum(["create", "modify", "delete"]) })).min(1),
-    testing_strategy: z.object({ unit: z.boolean(), integration: z.boolean(), e2e: z.boolean() }),
-    open_questions: z.array(z.string()), requires_migration: z.boolean(),
-  }),
+    approach_summary: z.string().max(5000),
+    decisions: z.array(z.object({ title: z.string().max(300), choice: z.string().max(500), rationale: z.string().max(1000) }).strict()).min(1),
+    file_changes: z.array(z.object({ path: z.string().max(500), action: z.enum(["create", "modify", "delete"]) }).strict()).min(1),
+    testing_strategy: z.object({ unit: z.boolean(), integration: z.boolean(), e2e: z.boolean() }).strict(),
+    open_questions: z.array(z.string().max(500)), requires_migration: z.boolean(),
+  }).strict(),
 })
 
 const TasksContract = BaseEnvelope.extend({
   phase: z.literal("tasks"),
   data: z.object({
     total_tasks: z.number().int().min(1), total_phases: z.number().int().min(1),
-    phases: z.array(z.object({ phase_number: z.number().int().min(1), name: z.string(), task_count: z.number().int().min(1) })),
+    phases: z.array(z.object({ phase_number: z.number().int().min(1), name: z.string().max(200), task_count: z.number().int().min(1) }).strict()),
     parallel_groups: z.number().int().min(1), task_board_json_included: z.boolean(),
     task_types: z.array(z.enum(["IMPLEMENTATION", "REFACTOR", "DATABASE", "INFRASTRUCTURE", "DOCUMENTATION", "TEST"])),
-  }),
+  }).strict(),
 })
 
 const ApplyContract = BaseEnvelope.extend({
   phase: z.literal("apply"),
   data: z.object({
     mode: z.enum(["tdd", "standard"]),
-    tasks_completed: z.array(z.string()), tasks_remaining: z.array(z.string()),
+    tasks_completed: z.array(z.string().max(100)), tasks_remaining: z.array(z.string().max(100)),
     tasks_total: z.number().int().min(1),
-    files_changed: z.array(z.object({ path: z.string(), action: z.enum(["created", "modified", "deleted"]) })),
-    deviations_from_design: z.array(z.string()), issues_found: z.array(z.string()),
+    files_changed: z.array(z.object({ path: z.string().max(500), action: z.enum(["created", "modified", "deleted"]) }).strict()),
+    deviations_from_design: z.array(z.string().max(1000)), issues_found: z.array(z.string().max(1000)),
     completion_ratio: z.number().min(0).max(1),
-  }),
+  }).strict(),
 })
 
 const VerifyContract = BaseEnvelope.extend({
   phase: z.literal("verify"),
   data: z.object({
-    completeness: z.object({ tasks_total: z.number().int(), tasks_complete: z.number().int(), tasks_incomplete: z.number().int() }),
-    build: z.object({ passed: z.boolean(), error: z.string().optional() }),
-    tests: z.object({ passed: z.number().int(), failed: z.number().int(), skipped: z.number().int() }),
+    completeness: z.object({ tasks_total: z.number().int(), tasks_complete: z.number().int(), tasks_incomplete: z.number().int() }).strict(),
+    build: z.object({ passed: z.boolean(), error: z.string().max(2000).optional() }).strict(),
+    tests: z.object({ passed: z.number().int(), failed: z.number().int(), skipped: z.number().int() }).strict(),
     coverage_pct: z.number().min(0).max(100).optional(),
-    compliance: z.object({ total_scenarios: z.number().int(), compliant: z.number().int(), failing: z.number().int(), untested: z.number().int(), partial: z.number().int() }),
-    issues: z.object({ critical: z.number().int(), high: z.number().int(), major: z.number().int(), minor: z.number().int() }),
+    compliance: z.object({ total_scenarios: z.number().int(), compliant: z.number().int(), failing: z.number().int(), untested: z.number().int(), partial: z.number().int() }).strict(),
+    issues: z.object({ critical: z.number().int(), high: z.number().int(), major: z.number().int(), minor: z.number().int() }).strict(),
     verdict: z.enum(["pass", "pass_with_warnings", "fail"]),
-  }),
+  }).strict(),
 })
 
 const ArchiveContract = BaseEnvelope.extend({
   phase: z.literal("archive"),
   data: z.object({
-    specs_synced: z.array(z.object({ domain: z.string(), action: z.enum(["created", "updated"]) })),
-    artifact_ids: z.record(z.string(), z.string()), archive_location: z.string(),
+    specs_synced: z.array(z.object({ domain: z.string().max(200), action: z.enum(["created", "updated"]) }).strict()),
+    artifact_ids: z.record(z.string().max(100), z.string().max(200)), archive_location: z.string().max(500),
     all_tasks_complete: z.boolean(), verification_verdict: z.enum(["pass", "pass_with_warnings"]),
-  }),
+  }).strict(),
 })
 
 export const SCHEMAS: Record<SddPhase, any> = {
