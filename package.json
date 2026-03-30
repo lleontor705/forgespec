@@ -18,6 +18,9 @@
     "ai-agents"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "lleontor705",
   "repository": {
     "type": "git",
