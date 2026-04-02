@@ -14,6 +14,7 @@ export { getDatabase, postNotification, consumeNotifications, cleanupOldData, cl
 export { SDD_PHASES, SCHEMAS, CONFIDENCE_THRESHOLDS, VALID_TRANSITIONS, CURRENT_SCHEMA_VERSION, BaseEnvelope, validateJson, extractContract, migrateContract, SDD_AGENTS, AGENT_CONTRACT_INJECTION, ORCHESTRATOR_CONTRACT_INJECTION } from "./src/contracts"
 export type { SddPhase } from "./src/contracts"
 export { MAX_RETRIES, ensureString, formatTaskStatus, formatBoardSummary, unblockReadyTasks, globOverlaps, _clearRegexpCache, _regexpCacheSize } from "./src/task-board"
+export { sanitizeInput } from "./src/sanitize"
 
 import { getDatabase, postNotification, cleanupOldData } from "./src/database"
 import { type SddPhase, CONFIDENCE_THRESHOLDS, VALID_TRANSITIONS, validateJson, extractContract, SDD_AGENTS, AGENT_CONTRACT_INJECTION, ORCHESTRATOR_CONTRACT_INJECTION } from "./src/contracts"

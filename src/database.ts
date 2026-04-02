@@ -32,10 +32,11 @@ export function getDatabase(): Database {
 
   const db = new Database(DB_PATH, { create: true })
 
-  db.run("PRAGMA journal_mode = WAL")
-  db.run("PRAGMA busy_timeout = 5000")
-  db.run("PRAGMA synchronous = NORMAL")
-  db.run("PRAGMA foreign_keys = ON")
+  db.exec("PRAGMA journal_mode = WAL")
+  db.exec("PRAGMA synchronous = normal")
+  db.exec("PRAGMA cache_size = -32000")
+  db.exec("PRAGMA busy_timeout = 5000")
+  db.exec("PRAGMA foreign_keys = ON")
 
   db.run(`CREATE TABLE IF NOT EXISTS threads (
     id TEXT PRIMARY KEY, subject TEXT NOT NULL,
