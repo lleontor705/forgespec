@@ -10,15 +10,18 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
 
-export { getDatabase, postNotification, consumeNotifications, cleanupOldData, cleanupOldMessages, DB_DIR, DB_PATH, _resetDatabase } from "./src/database"
-export { SDD_PHASES, SCHEMAS, CONFIDENCE_THRESHOLDS, VALID_TRANSITIONS, CURRENT_SCHEMA_VERSION, BaseEnvelope, validateJson, extractContract, migrateContract, SDD_AGENTS, AGENT_CONTRACT_INJECTION, ORCHESTRATOR_CONTRACT_INJECTION } from "./src/contracts"
+export { getDatabase, postNotification, consumeNotifications, cleanupOldData, cleanupOldMessages, logAudit, DB_DIR, DB_PATH, _resetDatabase } from "./src/database"
+export { SDD_PHASES, SCHEMAS, CONFIDENCE_THRESHOLDS, VALID_TRANSITIONS, CURRENT_SCHEMA_VERSION, BaseEnvelope, RiskSchema, ArtifactSchema, validateJson, extractContract, migrateContract, SDD_AGENTS, AGENT_CONTRACT_INJECTION, ORCHESTRATOR_CONTRACT_INJECTION } from "./src/contracts"
 export type { SddPhase } from "./src/contracts"
-export { MAX_RETRIES, ensureString, formatTaskStatus, formatBoardSummary, unblockReadyTasks, globOverlaps, _clearRegexpCache, _regexpCacheSize } from "./src/task-board"
+export { MAX_RETRIES, TASK_STATUSES, ensureString, formatTaskStatus, formatBoardSummary, unblockReadyTasks, globOverlaps, _clearRegexpCache, _regexpCacheSize } from "./src/task-board"
+export type { TaskStatus } from "./src/task-board"
 export { sanitizeInput } from "./src/sanitize"
+export { generateId } from "./src/utils/id"
 
-import { getDatabase, postNotification, cleanupOldData } from "./src/database"
-import { type SddPhase, CONFIDENCE_THRESHOLDS, VALID_TRANSITIONS, validateJson, extractContract, SDD_AGENTS, AGENT_CONTRACT_INJECTION, ORCHESTRATOR_CONTRACT_INJECTION } from "./src/contracts"
+import { getDatabase, postNotification, logAudit, cleanupOldData } from "./src/database"
+import { type SddPhase, SDD_PHASES, CONFIDENCE_THRESHOLDS, VALID_TRANSITIONS, validateJson, extractContract, SDD_AGENTS, AGENT_CONTRACT_INJECTION, ORCHESTRATOR_CONTRACT_INJECTION } from "./src/contracts"
 import { MAX_RETRIES, ensureString, formatTaskStatus, formatBoardSummary, unblockReadyTasks, globOverlaps } from "./src/task-board"
+import { generateId } from "./src/utils/id"
 
 export default (async (ctx) => {
   const db = getDatabase()
@@ -40,6 +43,15 @@ export default (async (ctx) => {
   const releaseReservations = db.prepare(`DELETE FROM file_reservations WHERE reserved_by = $agent`)
   const releaseByPattern = db.prepare(`DELETE FROM file_reservations WHERE pattern = $pattern AND reserved_by = $agent`)
   const cleanExpired = db.prepare(`DELETE FROM file_reservations WHERE expires_at <= datetime('now')`)
+
+  // Contract persistence statements
+  const insertContract = db.prepare(`INSERT INTO contracts (id, phase, change_name, project, status, confidence, executive_summary, data) VALUES ($id, $phase, $change_name, $project, $status, $confidence, $executive_summary, $data)`)
+  const getContract = db.prepare(`SELECT * FROM contracts WHERE id = $id`)
+  const getHistory = db.prepare(`SELECT id, phase, change_name, status, confidence, executive_summary, created_at FROM contracts WHERE project = $project ORDER BY created_at DESC LIMIT $limit`)
+  const getAllBoards = db.prepare(`SELECT * FROM boards ORDER BY created_at DESC`)
+  const getBoardsByProject = db.prepare(`SELECT * FROM boards WHERE project = $project ORDER BY created_at DESC`)
+  const deleteTask = db.prepare(`DELETE FROM tasks WHERE id = $id AND board_id = $board_id`)
+  const getTaskNotes = db.prepare(`SELECT id, notes, board_id FROM tasks WHERE id = $id AND board_id = $board_id`)
 
   function checkConflict(pattern: string, agent: string, cachedReservations?: any[]): any | null {
     const exact = checkReservationExact.get({ $pattern: pattern, $agent: agent }) as any
@@ -112,6 +124,7 @@ export default (async (ctx) => {
           board_id: tool.schema.string().describe("Unique board ID"),
           title: tool.schema.string().describe("Board title"),
           tasks: tool.schema.string().describe("JSON array of task objects"),
+          project: tool.schema.string().optional().describe("Project identifier"),
         },
         async execute(args) {
           let list: any[]
@@ -119,6 +132,7 @@ export default (async (ctx) => {
           if (!list.length) return "ERROR: Empty task list."
           db.transaction(() => {
             insertBoard.run({ $id: args.board_id, $title: args.title, $total_tasks: list.length })
+            if (args.project) db.run(`UPDATE boards SET project = ? WHERE id = ?`, [args.project, args.board_id])
             for (const t of list) {
               const deps = t.dependencies ?? []
               insertTask.run({ $id: t.id, $board_id: args.board_id, $title: ensureString(t.title, "Untitled"), $agent: ensureString(t.agent, "developer"), $status: deps.length > 0 ? "blocked" : "pending", $dependencies: JSON.stringify(deps), $size: ensureString(t.size, "M"), $plan_approval: ensureString(t.plan_approval, "NO"), $description: ensureString(t.description), $files: JSON.stringify(t.files ?? []), $input_context: ensureString(t.input ?? t.input_context), $acceptance: ensureString(t.acceptance), $parallel_group: t.parallel_group ?? t.group ?? 1 })
@@ -165,7 +179,7 @@ export default (async (ctx) => {
       tb_update: tool({
         description: "Update task status with auto-notification.",
         args: {
-          task_id: tool.schema.string().describe("Task ID"), status: tool.schema.enum(["in_progress", "completed", "failed", "pending"]).describe("New status"),
+          task_id: tool.schema.string().describe("Task ID"), status: tool.schema.enum(["in_progress", "in_review", "completed", "failed", "pending"]).describe("New status"),
           output: tool.schema.string().optional().describe("Output summary"), failed_reason: tool.schema.string().optional().describe("Failure reason"),
           board_id: tool.schema.string().optional().describe("Board ID"),
         },
@@ -173,6 +187,10 @@ export default (async (ctx) => {
           const agent = context.agent ?? "unknown"
           const b = resolveBoard(args.board_id) as any
           if (!b) return "ERROR: No active task board."
+          if (args.status === "completed") {
+            const cur = getTask.get({ $id: args.task_id, $board_id: b.id }) as any
+            if (cur && cur.status !== "in_progress" && cur.status !== "in_review") return `ERROR: Cannot complete task from '${cur.status}'. Must be 'in_progress' or 'in_review' first.`
+          }
           if (args.status === "pending" || args.status === "in_progress") {
             const cur = getTask.get({ $id: args.task_id, $board_id: b.id }) as any
             if (cur && cur.retry_count >= MAX_RETRIES) return `ERROR: Task ${args.task_id} exceeded max retries (${MAX_RETRIES}).`
@@ -228,6 +246,8 @@ export default (async (ctx) => {
           let out = formatTaskStatus(t) + `\n   Description: ${t.description}\n   Input: ${t.input_context}\n   Acceptance: ${t.acceptance}`
           if (t.output_result) out += `\n   Output: ${t.output_result}`
           if (t.failed_reason) out += `\n   Failure: ${t.failed_reason}`
+          const notes = JSON.parse(t.notes || "[]") as any[]
+          if (notes.length) out += `\n   Notes (${notes.length}): ${notes.map((n: any) => `[${n.timestamp}] ${n.text}`).join("; ")}`
           return out
         },
       }),
@@ -244,6 +264,137 @@ export default (async (ctx) => {
           insertTask.run({ $id: t.id, $board_id: b.id, $title: ensureString(t.title, "Untitled"), $agent: ensureString(t.agent, "developer"), $status: status, $dependencies: JSON.stringify(deps), $size: ensureString(t.size, "M"), $plan_approval: ensureString(t.plan_approval, "NO"), $description: ensureString(t.description), $files: JSON.stringify(t.files ?? []), $input_context: ensureString(t.input ?? t.input_context), $acceptance: ensureString(t.acceptance), $parallel_group: t.parallel_group ?? 99 })
           db.run(`UPDATE boards SET total_tasks = total_tasks + 1, updated_at = datetime('now') WHERE id = ?`, [b.id])
           return `Task ${t.id} added. Status: ${status}.`
+        },
+      }),
+
+      sdd_save: tool({
+        description: "Validate and persist an SDD contract to the database.",
+        args: {
+          phase: tool.schema.enum(["init", "explore", "propose", "spec", "design", "tasks", "apply", "verify", "archive"]).describe("SDD phase"),
+          contract_json: tool.schema.string().describe("JSON string of the SDD contract"),
+        },
+        async execute(args, context) {
+          const phase = args.phase as SddPhase
+          const r = validateJson(phase, args.contract_json)
+          if (!r.valid) return JSON.stringify({ saved: false, errors: r.errors })
+          const contract = r.contract as any
+          const id = generateId("sdd")
+          insertContract.run({ $id: id, $phase: phase, $change_name: contract.change_name, $project: contract.project, $status: contract.status, $confidence: contract.confidence, $executive_summary: contract.executive_summary, $data: JSON.stringify(contract.data ?? {}) })
+          logAudit(db, "contract_saved", "contract", id, context.agent, `phase=${phase}, project=${contract.project}`)
+          return JSON.stringify({ saved: true, id, phase, project: contract.project })
+        },
+      }),
+
+      sdd_history: tool({
+        description: "Get SDD phase history for a project.",
+        args: {
+          project: tool.schema.string().describe("Project identifier"),
+          limit: tool.schema.number().optional().describe("Max entries (default 20)"),
+        },
+        async execute(args) {
+          const rows = getHistory.all({ $project: args.project, $limit: args.limit ?? 20 })
+          return JSON.stringify({ project: args.project, history: rows })
+        },
+      }),
+
+      sdd_get: tool({
+        description: "Get a single SDD contract by ID.",
+        args: { contract_id: tool.schema.string().describe("Contract ID") },
+        async execute(args) {
+          const row = getContract.get({ $id: args.contract_id })
+          if (!row) return JSON.stringify({ error: `Contract ${args.contract_id} not found` })
+          return JSON.stringify({ contract: row })
+        },
+      }),
+
+      sdd_list: tool({
+        description: "List SDD contracts with optional filters.",
+        args: {
+          project: tool.schema.string().optional().describe("Filter by project"),
+          phase: tool.schema.string().optional().describe("Filter by phase"),
+          limit: tool.schema.number().optional().describe("Max entries (default 20)"),
+        },
+        async execute(args) {
+          const conditions: string[] = [], params: any[] = []
+          if (args.project) { conditions.push("project = ?"); params.push(args.project) }
+          if (args.phase) { conditions.push("phase = ?"); params.push(args.phase) }
+          const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+          params.push(args.limit ?? 20)
+          const rows = db.prepare(`SELECT * FROM contracts ${where} ORDER BY created_at DESC LIMIT ?`).all(...params)
+          return JSON.stringify({ contracts: rows, count: rows.length })
+        },
+      }),
+
+      sdd_phases: tool({
+        description: "Get SDD phase info with transitions and confidence thresholds.",
+        args: {},
+        async execute() {
+          const phases = SDD_PHASES.map(p => ({
+            phase: p,
+            confidence_threshold: CONFIDENCE_THRESHOLDS[p],
+            can_transition_to: VALID_TRANSITIONS[p],
+          }))
+          return JSON.stringify({ phases })
+        },
+      }),
+
+      tb_delete_task: tool({
+        description: "Delete a task. Only pending or completed tasks can be deleted.",
+        args: {
+          task_id: tool.schema.string().describe("Task ID"),
+          board_id: tool.schema.string().optional().describe("Board ID"),
+        },
+        async execute(args, context) {
+          const b = resolveBoard(args.board_id) as any
+          if (!b) return "ERROR: No active task board."
+          const t = getTask.get({ $id: args.task_id, $board_id: b.id }) as any
+          if (!t) return `ERROR: Task ${args.task_id} not found.`
+          if (t.status !== "pending" && t.status !== "completed") return `ERROR: Cannot delete task in '${t.status}' status. Only 'pending' or 'completed' tasks can be deleted.`
+          db.transaction(() => {
+            const siblings = getBoardTasks.all({ $board_id: b.id }) as any[]
+            for (const s of siblings) {
+              if (s.id === args.task_id) continue
+              const deps = JSON.parse(s.dependencies || "[]") as string[]
+              if (deps.includes(args.task_id)) {
+                const updated = deps.filter((d: string) => d !== args.task_id)
+                db.run(`UPDATE tasks SET dependencies = ?, updated_at = datetime('now') WHERE id = ? AND board_id = ?`, [JSON.stringify(updated), s.id, b.id])
+              }
+            }
+            deleteTask.run({ $id: args.task_id, $board_id: b.id })
+            db.run(`UPDATE boards SET total_tasks = total_tasks - 1, updated_at = datetime('now') WHERE id = ?`, [b.id])
+          })()
+          logAudit(db, "task_deleted", "task", args.task_id, context.agent, `board=${b.id}`)
+          return `Task ${args.task_id} deleted.`
+        },
+      }),
+
+      tb_add_notes: tool({
+        description: "Append timestamped notes to a task without changing status.",
+        args: {
+          task_id: tool.schema.string().describe("Task ID"),
+          notes: tool.schema.string().describe("Note text to append"),
+          board_id: tool.schema.string().optional().describe("Board ID"),
+        },
+        async execute(args) {
+          const b = resolveBoard(args.board_id) as any
+          if (!b) return "ERROR: No active task board."
+          const t = getTaskNotes.get({ $id: args.task_id, $board_id: b.id }) as any
+          if (!t) return `ERROR: Task ${args.task_id} not found.`
+          const existing = JSON.parse(t.notes || "[]") as Array<{ text: string; timestamp: string }>
+          existing.push({ text: args.notes, timestamp: new Date().toISOString() })
+          db.run(`UPDATE tasks SET notes = ?, updated_at = datetime('now') WHERE id = ? AND board_id = ?`, [JSON.stringify(existing), args.task_id, b.id])
+          return JSON.stringify({ added: true, task_id: args.task_id, notes_count: existing.length })
+        },
+      }),
+
+      tb_list: tool({
+        description: "List all task boards, optionally filtered by project.",
+        args: { project: tool.schema.string().optional().describe("Filter by project") },
+        async execute(args) {
+          const boards = args.project
+            ? getBoardsByProject.all({ $project: args.project })
+            : getAllBoards.all()
+          return JSON.stringify({ boards, count: (boards as any[]).length })
         },
       }),
 

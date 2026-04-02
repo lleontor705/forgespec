@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { ensureString, formatTaskStatus, formatBoardSummary, globOverlaps, MAX_RETRIES } from "../src/task-board"
+import { ensureString, formatTaskStatus, formatBoardSummary, globOverlaps, MAX_RETRIES, TASK_STATUSES } from "../src/task-board"
 
 describe("ensureString", () => {
   test("string passthrough", () => { expect(ensureString("hello")).toBe("hello") })
@@ -46,4 +46,23 @@ describe("globOverlaps", () => {
   test("different dirs", () => { expect(globOverlaps("src/**", "lib/a.ts")).toBe(false) })
 })
 
-describe("Constants", () => { test("MAX_RETRIES is 3", () => { expect(MAX_RETRIES).toBe(3) }) })
+describe("formatTaskStatus - in_review", () => {
+  test("in_review task", () => {
+    const out = formatTaskStatus({ id: "T4", title: "Review", agent: "qa", size: "M", parallel_group: 1, plan_approval: "NO", status: "in_review", claimed_by: "qa", completed_at: null, failed_reason: null, dependencies: "[]", files: "[]" })
+    expect(out).toContain("🔍"); expect(out).toContain("[T4]")
+  })
+})
+
+describe("Constants", () => {
+  test("MAX_RETRIES is 3", () => { expect(MAX_RETRIES).toBe(3) })
+  test("TASK_STATUSES contains all statuses", () => {
+    expect(TASK_STATUSES).toContain("pending")
+    expect(TASK_STATUSES).toContain("blocked")
+    expect(TASK_STATUSES).toContain("claimed")
+    expect(TASK_STATUSES).toContain("in_progress")
+    expect(TASK_STATUSES).toContain("in_review")
+    expect(TASK_STATUSES).toContain("completed")
+    expect(TASK_STATUSES).toContain("failed")
+    expect(TASK_STATUSES).toHaveLength(7)
+  })
+})

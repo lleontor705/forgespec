@@ -14,6 +14,17 @@ export type SddPhase = (typeof SDD_PHASES)[number]
 const SddPhaseEnum = z.enum(SDD_PHASES)
 const RiskLevel = z.enum(["low", "medium", "high", "critical"])
 
+export const RiskSchema = z.object({
+  description: z.string().max(4096),
+  level: RiskLevel,
+}).strict()
+
+export const ArtifactSchema = z.object({
+  topic_key: z.string().max(512),
+  type: z.enum(["engram", "cortex", "openspec", "inline"]),
+  path: z.string().max(1024).optional(),
+}).strict()
+
 export const CURRENT_SCHEMA_VERSION = "1.1"
 const SUPPORTED_VERSIONS = ["1.0", "1.1"] as const
 const SchemaVersion = z.enum(SUPPORTED_VERSIONS)
@@ -35,9 +46,9 @@ export const BaseEnvelope = z.object({
   status: z.enum(["success", "partial", "failed", "blocked"]),
   confidence: z.number().min(0).max(1),
   executive_summary: z.string().min(10).max(500),
-  artifacts_saved: z.array(z.object({ topic_key: z.string().max(300), type: z.enum(["engram", "openspec", "inline"]) }).strict()),
+  artifacts_saved: z.array(ArtifactSchema),
   next_recommended: z.array(z.string().max(50)),
-  risks: z.array(z.object({ description: z.string().max(500), level: RiskLevel }).strict()),
+  risks: z.array(RiskSchema),
 }).strict()
 
 const InitContract = BaseEnvelope.extend({

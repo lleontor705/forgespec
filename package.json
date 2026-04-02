@@ -1,6 +1,6 @@
 {
   "name": "forgespec",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "type": "module",
   "module": "index.ts",
   "description": "Multi-agent SDD plugin — Zod contract validation, task board with dependency management, file reservation, and shared SQLite database. Compatible with OpenCode, Claude, Gemini, and Codex.",
@@ -31,7 +31,9 @@
   },
   "files": [
     "index.ts",
-    "src/"
+    "src/",
+    "skills/",
+    "docs/"
   ],
   "dependencies": {
     "@opencode-ai/plugin": "^1.2.26"

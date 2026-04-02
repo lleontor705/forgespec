@@ -6,6 +6,12 @@ import type { Database } from "bun:sqlite"
 
 export const MAX_RETRIES = 3
 
+export const TASK_STATUSES = [
+  "pending", "blocked", "claimed", "in_progress", "in_review", "completed", "failed",
+] as const
+
+export type TaskStatus = (typeof TASK_STATUSES)[number]
+
 export function ensureString(val: unknown, fallback = ""): string {
   if (val == null) return fallback
   if (typeof val === "string") return val
@@ -16,7 +22,7 @@ export function ensureString(val: unknown, fallback = ""): string {
 export function formatTaskStatus(task: any): string {
   const icons: Record<string, string> = {
     pending: "⏳", blocked: "🚫", claimed: "🔒",
-    in_progress: "🔄", completed: "✅", failed: "❌",
+    in_progress: "🔄", in_review: "🔍", completed: "✅", failed: "❌",
   }
   const icon = icons[task.status] ?? "❓"
   return (

@@ -8,7 +8,7 @@ const TEST_DB = join(TEST_DIR, "test.db")
 process.env.AGENT_MAILBOX_DIR = TEST_DIR
 process.env.AGENT_MAILBOX_DB = TEST_DB
 
-import { getDatabase, postNotification, consumeNotifications, cleanupOldData, cleanupOldMessages, _resetDatabase } from "../src/database"
+import { getDatabase, postNotification, consumeNotifications, cleanupOldData, cleanupOldMessages, logAudit, _resetDatabase } from "../src/database"
 
 beforeAll(() => { if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true }); mkdirSync(TEST_DIR, { recursive: true }) })
 afterAll(() => { _resetDatabase(); if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true }) })
@@ -18,7 +18,7 @@ describe("Database Singleton", () => {
   test("returns same instance", () => { expect(getDatabase()).toBe(getDatabase()) })
   test("creates all tables", () => {
     const names = (getDatabase().prepare(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`).all() as { name: string }[]).map(t => t.name)
-    for (const t of ["boards", "tasks", "threads", "messages", "file_reservations", "notifications"]) expect(names).toContain(t)
+    for (const t of ["boards", "tasks", "threads", "messages", "file_reservations", "notifications", "contracts", "audit_log"]) expect(names).toContain(t)
   })
   test("creates FTS5 table", () => { expect(getDatabase().prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='messages_fts'`).all()).toHaveLength(1) })
 })

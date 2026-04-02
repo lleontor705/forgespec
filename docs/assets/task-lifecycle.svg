@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 220" fill="none">
+  <defs>
+    <linearGradient id="st-pending" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="st-claimed" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="st-progress" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#d97706"/>
+    </linearGradient>
+    <linearGradient id="st-review" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#0891b2"/>
+    </linearGradient>
+    <linearGradient id="st-done" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+    <linearGradient id="st-failed" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ef4444"/>
+      <stop offset="100%" style="stop-color:#dc2626"/>
+    </linearGradient>
+    <linearGradient id="st-blocked" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#64748b"/>
+      <stop offset="100%" style="stop-color:#475569"/>
+    </linearGradient>
+    <filter id="sh">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#22c55e"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="700" height="220" rx="12" fill="#020617"/>
+
+  <!-- Title -->
+  <text x="350" y="25" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#e2e8f0" text-anchor="middle">
+    Task Status Lifecycle
+  </text>
+
+  <!-- Main flow: pending -> claimed -> in_progress -> in_review -> completed -->
+  <g transform="translate(30, 60)" filter="url(#sh)">
+    <rect width="80" height="40" rx="6" fill="url(#st-pending)"/>
+    <text x="40" y="25" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">pending</text>
+  </g>
+  <path d="M115 80 L140 80" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g transform="translate(145, 60)" filter="url(#sh)">
+    <rect width="80" height="40" rx="6" fill="url(#st-claimed)"/>
+    <text x="40" y="25" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">claimed</text>
+  </g>
+  <path d="M230 80 L255 80" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g transform="translate(260, 60)" filter="url(#sh)">
+    <rect width="95" height="40" rx="6" fill="url(#st-progress)"/>
+    <text x="47" y="25" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">in_progress</text>
+  </g>
+  <path d="M360 80 L385 80" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g transform="translate(390, 60)" filter="url(#sh)">
+    <rect width="85" height="40" rx="6" fill="url(#st-review)"/>
+    <text x="42" y="25" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">in_review</text>
+  </g>
+  <path d="M480 80 L505 80" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <g transform="translate(510, 60)" filter="url(#sh)">
+    <rect width="90" height="40" rx="6" fill="url(#st-done)"/>
+    <text x="45" y="25" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">completed</text>
+  </g>
+
+  <!-- Failed branch from in_progress -->
+  <path d="M307 105 L307 145 L360 145" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <g transform="translate(365, 128)" filter="url(#sh)">
+    <rect width="70" height="35" rx="6" fill="url(#st-failed)"/>
+    <text x="35" y="22" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">failed</text>
+  </g>
+
+  <!-- Retry arrow from failed back to pending -->
+  <path d="M400 167 L400 190 L70 190 L70 105" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4" marker-end="url(#arrow)"/>
+  <text x="235" y="203" font-family="system-ui, sans-serif" font-size="9" fill="#64748b" text-anchor="middle">retry (max 3)</text>
+
+  <!-- Blocked box -->
+  <g transform="translate(610, 60)" filter="url(#sh)">
+    <rect width="70" height="40" rx="6" fill="url(#st-blocked)"/>
+    <text x="35" y="25" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">blocked</text>
+  </g>
+  <!-- Auto-unblock arrow from blocked to pending -->
+  <path d="M610 80 L605 80" stroke="#22c55e" stroke-width="1" stroke-dasharray="3"/>
+  <path d="M645 105 L645 125 L70 125 L70 105" stroke="#22c55e" stroke-width="1" stroke-dasharray="4" marker-end="url(#arrow-green)"/>
+  <text x="355" y="120" font-family="system-ui, sans-serif" font-size="9" fill="#4ade80" text-anchor="middle">auto-unblock (deps completed)</text>
+</svg>
