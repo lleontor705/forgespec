@@ -140,6 +140,35 @@ export function getDatabase(): Database {
 
   db.run(`CREATE INDEX IF NOT EXISTS idx_notifications_target ON notifications(target, consumed_at)`)
 
+  db.run(`CREATE TABLE IF NOT EXISTS contracts (
+    id TEXT PRIMARY KEY,
+    phase TEXT NOT NULL,
+    change_name TEXT NOT NULL,
+    project TEXT NOT NULL,
+    status TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    executive_summary TEXT NOT NULL,
+    data TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`)
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_contracts_project ON contracts(project)`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`)
+
+  db.run(`CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT DEFAULT (datetime('now')),
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    agent_name TEXT,
+    details TEXT
+  )`)
+
+  // Safe column migrations for existing databases
+  try { db.run(`ALTER TABLE tasks ADD COLUMN notes TEXT NOT NULL DEFAULT '[]'`) } catch { /* column exists */ }
+  try { db.run(`ALTER TABLE boards ADD COLUMN project TEXT DEFAULT ''`) } catch { /* column exists */ }
+
   _db = db
   return db
 }
@@ -170,6 +199,11 @@ export function cleanupOldData(db: Database): void {
     db.run(`DELETE FROM file_reservations WHERE expires_at <= datetime('now')`)
     db.run(`DELETE FROM notifications WHERE consumed_at IS NOT NULL AND created_at < datetime('now', '-7 days')`)
   } catch { /* best-effort */ }
+}
+
+export function logAudit(db: Database, action: string, entityType: string, entityId: string, agentName?: string, details?: string): void {
+  db.run(`INSERT INTO audit_log (action, entity_type, entity_id, agent_name, details) VALUES (?, ?, ?, ?, ?)`,
+    [action, entityType, entityId, agentName ?? null, details ?? null])
 }
 
 export function cleanupOldMessages(db: Database): void {
