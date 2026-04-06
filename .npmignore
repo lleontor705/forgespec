@@ -1,0 +1,15 @@
+src/
+test/
+*.ts
+!dist/**/*.d.ts
+!dist/**/*.d.cts
+tsconfig.json
+tsup.config.ts
+.github/
+.husky/
+.git/
+.gitignore
+.agent-mailbox/
+*.db
+bun.lock
+claude-prompt.txt

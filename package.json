@@ -1,8 +1,22 @@
 {
   "name": "forgespec",
-  "version": "1.0.3",
+  "version": "1.1.1",
   "type": "module",
-  "module": "index.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
   "description": "Multi-agent SDD plugin — Zod contract validation, task board with dependency management, file reservation, and shared SQLite database. Compatible with OpenCode, Claude, Gemini, and Codex.",
   "keywords": [
     "sdd",
@@ -30,20 +44,24 @@
     "url": "https://github.com/lleontor705/forgespec.git"
   },
   "files": [
-    "index.ts",
-    "src/"
+    "dist/",
+    "LICENSE",
+    "README.md"
   ],
   "dependencies": {
     "@opencode-ai/plugin": "^1.2.26"
   },
   "devDependencies": {
     "bun-types": "^1.2.0",
-    "typescript": "^5.7.0",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0"
   },
   "scripts": {
+    "build": "tsup",
     "test": "bun test",
     "typecheck": "bun x tsc --noEmit",
+    "prepublishOnly": "bun run build && bun run test",
     "prepare": "husky"
   }
 }
