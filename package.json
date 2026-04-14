@@ -47,7 +47,9 @@
     "@opencode-ai/plugin": "^1.2.26"
   },
   "devDependencies": {
+    "@release-it/bumper": "^7.0.5",
     "bun-types": "^1.2.0",
+    "release-it": "^19.2.4",
     "typescript": "^5.7.0"
   },
   "scripts": {
@@ -55,6 +57,10 @@
     "test": "bun test",
     "typecheck": "bun x tsc --noEmit",
     "prepublishOnly": "npm run build && npm test",
-    "clean": "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\""
+    "clean": "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\"",
+    "release": "release-it",
+    "release:patch": "release-it patch --ci",
+    "release:minor": "release-it minor --ci",
+    "release:major": "release-it major --ci"
   }
 }
