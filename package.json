@@ -48,13 +48,14 @@
   },
   "devDependencies": {
     "bun-types": "^1.2.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.7.0"
   },
   "scripts": {
-    "build": "bun build ./index.ts --outdir dist --target bun && bun x tsc --emitDeclarationOnly --outDir dist",
+    "build": "tsup",
     "test": "bun test",
-    "typecheck": "bun x tsc --noEmit",
+    "typecheck": "tsup --dts-only",
     "prepublishOnly": "npm run build && npm test",
-    "clean": "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\""
+    "clean": "tsup --clean"
   }
 }
